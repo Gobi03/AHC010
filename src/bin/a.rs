@@ -145,12 +145,16 @@ impl State {
         Self { cursor }
     }
 
+    // valid に行けるなら、next_stackに突っ込む
     fn try_go_to(&self, to: usize, next_stack: &mut Vec<State>) {
         if to != !0 {
-            next_stack.push(State::new(Cursor {
-                pos: self.cursor.pos.move_to_dir(to),
-                from: (to + 2) % 4,
-            }))
+            let to_pos = self.cursor.pos.move_to_dir(to);
+            if to_pos.in_field() {
+                next_stack.push(State::new(Cursor {
+                    pos: to_pos,
+                    from: (to + 2) % 4,
+                }))
+            }
         }
     }
 }
@@ -177,7 +181,7 @@ fn main() {
     };
 
     let mut stack = vec![State::new(sc1), State::new(sc2)];
-    loop {
+    for _ in 0..10 {
         let mut next_stack = vec![];
         for _ in 0..BEAM_WIDTH {
             if stack.is_empty() {
@@ -199,6 +203,8 @@ fn main() {
                 st.try_go_to(to, &mut next_stack);
             }
         }
+
+        eprintln!("{}", next_stack.len());
 
         // TODO: ソート。スコアが良いものほど後ろに
         stack = next_stack;
