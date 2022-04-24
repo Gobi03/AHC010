@@ -136,14 +136,19 @@ struct Cursor {
     from: usize, // 左上右下 (0123)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct State {
     cursor: Cursor,
+    ans: Vec<Vec<usize>>,
     mode: usize, // 0~3 角を曲がるごとにインクリメント
 }
 impl State {
     fn new(cursor: Cursor) -> Self {
-        Self { cursor, mode: 0 }
+        Self {
+            cursor,
+            ans: vec![vec![!0; SIDE]; SIDE],
+            mode: 0,
+        }
     }
 
     // 大きいほどよい
@@ -182,12 +187,13 @@ impl State {
     }
 
     // valid に行けるなら、next_stackに突っ込む
-    fn try_go_to(&self, to: usize) -> Option<State> {
+    fn try_go_to(&self, to: usize, rotate_num: usize) -> Option<State> {
         if to != !0 {
             let to_pos = self.cursor.pos.move_to_dir(to);
-            if to_pos.in_field() {
+            if to_pos.in_field() && *to_pos.access_matrix(&self.ans) == !0 {
                 let mut next_st = self.clone();
 
+                self.cursor.pos.set_matrix(&mut next_st.ans, rotate_num);
                 next_st.cursor = Cursor {
                     pos: to_pos,
                     from: (to + 2) % 4,
@@ -202,6 +208,19 @@ impl State {
         } else {
             None
         }
+    }
+
+    fn print_ans(&self) {
+        for y in 0..SIDE {
+            for x in 0..SIDE {
+                let mut n = self.ans[y][x];
+                if n == !0 {
+                    n = 0;
+                }
+                print!("{}", n)
+            }
+        }
+        println!()
     }
 }
 
@@ -240,7 +259,7 @@ fn main() {
 
             // 回転全パターンで次に進む
             let to = TO[tile][st.cursor.from];
-            st.try_go_to(to)
+            st.try_go_to(to, 0)
                 .into_iter()
                 .for_each(|next_st| next_stack.push(next_st));
 
@@ -248,7 +267,7 @@ fn main() {
             for i in 1..=rotate_time {
                 tile = ROTATE[tile];
                 let to = TO[tile][st.cursor.from];
-                st.try_go_to(to)
+                st.try_go_to(to, i)
                     .into_iter()
                     .for_each(|next_st| next_stack.push(next_st));
             }
@@ -261,7 +280,7 @@ fn main() {
         stack = next_stack;
     }
 
-    println!("");
+    stack[stack.len() - 1].print_ans();
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
 }
