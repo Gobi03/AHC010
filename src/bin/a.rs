@@ -140,7 +140,7 @@ struct Cursor {
 struct State {
     cursor: Cursor,
     ans: Vec<Vec<usize>>,
-    mode: usize, // 0~3 角を曲がるごとにインクリメント
+    mode: usize, // 0~3 角を曲がるごとにインクリメント, 4: 合流を目指す
 }
 impl State {
     fn new(cursor: Cursor) -> Self {
@@ -157,7 +157,8 @@ impl State {
             0 => self.cursor.pos.y as usize,
             1 => self.cursor.pos.x as usize,
             2 => SIDE - self.cursor.pos.y as usize,
-            3 => SIDE - self.cursor.pos.x as usize,
+            3 | 4 => SIDE - self.cursor.pos.x as usize,
+            5 => usize::MAX,
             _ => unreachable!(),
         };
 
@@ -181,33 +182,61 @@ impl State {
                     self.mode += 1;
                 }
             }
-            3 => (),
+            3 => {
+                if self.cursor.pos.x as usize <= 4 {
+                    self.mode += 1;
+                }
+            }
+            4 => (),
             _ => unreachable!(),
         }
     }
 
     // valid に行けるなら、next_stackに突っ込む
-    fn try_go_to(&self, to: usize, rotate_num: usize) -> Option<State> {
+    fn try_go_to(&self, to: usize, rotate_num: usize, input: &Input) -> Option<State> {
         if to != !0 {
             let to_pos = self.cursor.pos.move_to_dir(to);
-            if to_pos.in_field() && *to_pos.access_matrix(&self.ans) == !0 {
-                let mut next_st = self.clone();
+            if to_pos.in_field() {
+                // 合流できるか
+                if self.mode == 4 && *to_pos.access_matrix(&self.ans) != !0 {
+                    let mut tile = to_pos.access_matrix(&input.t).clone();
+                    for i in 0..*to_pos.access_matrix(&self.ans) {
+                        tile = ROTATE[tile];
+                    }
 
-                self.cursor.pos.set_matrix(&mut next_st.ans, rotate_num);
-                next_st.cursor = Cursor {
-                    pos: to_pos,
-                    from: (to + 2) % 4,
-                };
+                    let from = (to + 2) % 4;
+                    if TO[tile][from] != 0 {
+                        let mut next_st = self.clone();
 
-                next_st.try_to_change_mode();
+                        self.cursor.pos.set_matrix(&mut next_st.ans, rotate_num);
+                        next_st.cursor = Cursor {
+                            pos: to_pos,
+                            from: (to + 2) % 4,
+                        };
 
-                Some(next_st)
-            } else {
-                None
+                        next_st.mode = 5;
+
+                        return Some(next_st);
+                    }
+                }
+
+                if *to_pos.access_matrix(&self.ans) == !0 {
+                    let mut next_st = self.clone();
+
+                    self.cursor.pos.set_matrix(&mut next_st.ans, rotate_num);
+                    next_st.cursor = Cursor {
+                        pos: to_pos,
+                        from: (to + 2) % 4,
+                    };
+
+                    next_st.try_to_change_mode();
+
+                    return Some(next_st);
+                }
             }
-        } else {
-            None
         }
+
+        None
     }
 
     fn print_ans(&self) {
@@ -246,7 +275,8 @@ fn main() {
     };
 
     let mut stack = vec![State::new(sc1), State::new(sc2)];
-    for _ in 0..120 {
+    // TODO: ループ回数の調整
+    loop {
         let mut next_stack = vec![];
         for _ in 0..BEAM_WIDTH {
             if stack.is_empty() {
@@ -259,7 +289,7 @@ fn main() {
 
             // 回転全パターンで次に進む
             let to = TO[tile][st.cursor.from];
-            st.try_go_to(to, 0)
+            st.try_go_to(to, 0, &input)
                 .into_iter()
                 .for_each(|next_st| next_stack.push(next_st));
 
@@ -267,7 +297,7 @@ fn main() {
             for i in 1..=rotate_time {
                 tile = ROTATE[tile];
                 let to = TO[tile][st.cursor.from];
-                st.try_go_to(to, i)
+                st.try_go_to(to, i, &input)
                     .into_iter()
                     .for_each(|next_st| next_stack.push(next_st));
             }
@@ -278,6 +308,10 @@ fn main() {
         next_stack.sort_by(|st1, st2| st1.eval().cmp(&st2.eval()));
         eprintln!("{:?}", next_stack[next_stack.len() - 1].cursor);
         stack = next_stack;
+
+        if stack[stack.len() - 1].mode == 5 {
+            break;
+        }
     }
 
     stack[stack.len() - 1].print_ans();
