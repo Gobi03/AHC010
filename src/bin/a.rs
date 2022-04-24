@@ -158,7 +158,7 @@ impl State {
             1 => self.cursor.pos.x as usize,
             2 => SIDE - self.cursor.pos.y as usize,
             3 | 4 => SIDE - self.cursor.pos.x as usize,
-            5 => usize::MAX,
+            5 => std::usize::MAX,
             _ => unreachable!(),
         };
 
