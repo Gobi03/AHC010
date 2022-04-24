@@ -159,16 +159,48 @@ impl State {
         (self.mode, pos_point)
     }
 
+    fn try_to_change_mode(&mut self) {
+        match self.mode {
+            0 => {
+                if self.cursor.pos.y as usize >= SIDE - 2 {
+                    self.mode += 1;
+                }
+            }
+            1 => {
+                if self.cursor.pos.x as usize >= SIDE - 2 {
+                    self.mode += 1;
+                }
+            }
+            2 => {
+                if self.cursor.pos.y as usize <= 2 {
+                    self.mode += 1;
+                }
+            }
+            3 => (),
+            _ => unreachable!(),
+        }
+    }
+
     // valid に行けるなら、next_stackに突っ込む
-    fn try_go_to(&self, to: usize, next_stack: &mut Vec<State>) {
+    fn try_go_to(&self, to: usize) -> Option<State> {
         if to != !0 {
             let to_pos = self.cursor.pos.move_to_dir(to);
             if to_pos.in_field() {
-                next_stack.push(State::new(Cursor {
+                let mut next_st = self.clone();
+
+                next_st.cursor = Cursor {
                     pos: to_pos,
                     from: (to + 2) % 4,
-                }))
+                };
+
+                next_st.try_to_change_mode();
+
+                Some(next_st)
+            } else {
+                None
             }
+        } else {
+            None
         }
     }
 }
@@ -195,7 +227,7 @@ fn main() {
     };
 
     let mut stack = vec![State::new(sc1), State::new(sc2)];
-    for _ in 0..60 {
+    for _ in 0..120 {
         let mut next_stack = vec![];
         for _ in 0..BEAM_WIDTH {
             if stack.is_empty() {
@@ -208,19 +240,22 @@ fn main() {
 
             // 回転全パターンで次に進む
             let to = TO[tile][st.cursor.from];
-            st.try_go_to(to, &mut next_stack);
+            st.try_go_to(to)
+                .into_iter()
+                .for_each(|next_st| next_stack.push(next_st));
 
             let rotate_time = if tile < 4 { 3 } else { 1 };
             for i in 1..=rotate_time {
                 tile = ROTATE[tile];
                 let to = TO[tile][st.cursor.from];
-                st.try_go_to(to, &mut next_stack);
+                st.try_go_to(to)
+                    .into_iter()
+                    .for_each(|next_st| next_stack.push(next_st));
             }
         }
 
         // eprintln!("{}", next_stack.len());
 
-        // TODO: カーブに対応
         next_stack.sort_by(|st1, st2| st1.eval().cmp(&st2.eval()));
         eprintln!("{:?}", next_stack[next_stack.len() - 1].cursor);
         stack = next_stack;
