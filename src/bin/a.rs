@@ -280,7 +280,6 @@ fn main() {
     let init_st = State::new(sc, sp);
 
     let mut stack = vec![init_st.clone()];
-    // TODO: ループ回数の調整
     loop {
         let mut next_stack = vec![];
         for _ in 0..BEAM_WIDTH {
@@ -324,7 +323,70 @@ fn main() {
         }
     }
 
+    ///////
     if !stack.is_empty() {
+        let mut next_st = stack[stack.len() - 1].clone();
+
+        for x in (20..23).rev() {
+            for y in 20..=23 {
+                let tile = input.t[y][x];
+                if tile <= 3 {
+                    sp = Coord::from_usize_pair((x, y));
+                }
+            }
+        }
+        let sc = Cursor {
+            pos: sp.clone(),
+            from: 2,
+        };
+        next_st.cursor = sc;
+        next_st.mode = 4;
+
+        let mut stack = vec![next_st.clone()];
+
+        loop {
+            let mut next_stack = vec![];
+            for _ in 0..BEAM_WIDTH {
+                if stack.is_empty() {
+                    break;
+                }
+
+                let st = stack.pop().unwrap();
+
+                let mut tile = st.cursor.pos.access_matrix(&input.t).clone();
+
+                // 回転全パターンで次に進む
+                let to = TO[tile][st.cursor.from];
+                st.try_go_to(to, 0, &input)
+                    .into_iter()
+                    .for_each(|next_st| next_stack.push(next_st));
+
+                let rotate_time = if tile < 4 { 3 } else { 1 };
+                for i in 1..=rotate_time {
+                    tile = ROTATE[tile];
+                    let to = TO[tile][st.cursor.from];
+                    st.try_go_to(to, i, &input)
+                        .into_iter()
+                        .for_each(|next_st| next_stack.push(next_st));
+                }
+            }
+
+            // eprintln!("{}", next_stack.len());
+
+            if next_stack.is_empty() {
+                break;
+            }
+
+            next_stack.sort_by(|st1, st2| st1.eval().cmp(&st2.eval()));
+
+            //eprintln!("{:?}", next_stack[next_stack.len() - 1].cursor);
+            stack = next_stack;
+
+            if stack[stack.len() - 1].mode == 5 {
+                break;
+            }
+        }
+
         stack[stack.len() - 1].print_ans();
     } else {
         init_st.print_ans()
