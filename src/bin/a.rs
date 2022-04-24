@@ -197,16 +197,18 @@ fn main() {
             st.try_go_to(to, &mut next_stack);
 
             let rotate_time = if tile < 4 { 3 } else { 1 };
-            for i in 0..rotate_time {
+            for i in 1..=rotate_time {
                 tile = ROTATE[tile];
                 let to = TO[tile][st.cursor.from];
                 st.try_go_to(to, &mut next_stack);
             }
         }
 
-        eprintln!("{}", next_stack.len());
+        // eprintln!("{}", next_stack.len());
 
         // TODO: ソート。スコアが良いものほど後ろに
+        next_stack.sort_by(|st1, st2| st1.cursor.pos.y.cmp(&st2.cursor.pos.y));
+        eprintln!("{:?}", next_stack[next_stack.len() - 1].cursor);
         stack = next_stack;
     }
 
