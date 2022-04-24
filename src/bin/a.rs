@@ -263,8 +263,8 @@ fn main() {
     let input = Input::new(t);
 
     let mut sp = Coord::new((2, 2));
-    for y in 1..=3 {
-        for x in 1..=3 {
+    for x in (1..=3).rev() {
+        for y in 1..=3 {
             let tile = input.t[y][x];
             if tile <= 3 {
                 sp = Coord::from_usize_pair((x, y));
