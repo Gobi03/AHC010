@@ -139,10 +139,24 @@ struct Cursor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct State {
     cursor: Cursor,
+    mode: usize, // 0~3 角を曲がるごとにインクリメント
 }
 impl State {
     fn new(cursor: Cursor) -> Self {
-        Self { cursor }
+        Self { cursor, mode: 0 }
+    }
+
+    // 大きいほどよい
+    fn eval(&self) -> (usize, usize) {
+        let pos_point = match self.mode {
+            0 => self.cursor.pos.y as usize,
+            1 => self.cursor.pos.x as usize,
+            2 => SIDE - self.cursor.pos.y as usize,
+            3 => SIDE - self.cursor.pos.x as usize,
+            _ => unreachable!(),
+        };
+
+        (self.mode, pos_point)
     }
 
     // valid に行けるなら、next_stackに突っ込む
@@ -181,7 +195,7 @@ fn main() {
     };
 
     let mut stack = vec![State::new(sc1), State::new(sc2)];
-    for _ in 0..10 {
+    for _ in 0..60 {
         let mut next_stack = vec![];
         for _ in 0..BEAM_WIDTH {
             if stack.is_empty() {
@@ -206,8 +220,8 @@ fn main() {
 
         // eprintln!("{}", next_stack.len());
 
-        // TODO: ソート。スコアが良いものほど後ろに
-        next_stack.sort_by(|st1, st2| st1.cursor.pos.y.cmp(&st2.cursor.pos.y));
+        // TODO: カーブに対応
+        next_stack.sort_by(|st1, st2| st1.eval().cmp(&st2.eval()));
         eprintln!("{:?}", next_stack[next_stack.len() - 1].cursor);
         stack = next_stack;
     }
