@@ -141,13 +141,15 @@ struct State {
     cursor: Cursor,
     ans: Vec<Vec<usize>>,
     mode: usize, // 0~3 角を曲がるごとにインクリメント, 4: 合流を目指す
+    sp: Coord,
 }
 impl State {
-    fn new(cursor: Cursor) -> Self {
+    fn new(cursor: Cursor, sp: Coord) -> Self {
         Self {
             cursor,
             ans: vec![vec![!0; SIDE]; SIDE],
             mode: 0,
+            sp,
         }
     }
 
@@ -157,7 +159,8 @@ impl State {
             0 => self.cursor.pos.y as usize,
             1 => self.cursor.pos.x as usize,
             2 => SIDE - self.cursor.pos.y as usize,
-            3 | 4 => SIDE - self.cursor.pos.x as usize,
+            3 => SIDE - self.cursor.pos.x as usize,
+            4 => SIDE - self.sp.distance(&self.cursor.pos) as usize,
             5 => std::usize::MAX,
             _ => unreachable!(),
         };
@@ -183,7 +186,7 @@ impl State {
                 }
             }
             3 => {
-                if self.cursor.pos.x as usize <= 4 {
+                if self.cursor.pos.x as usize <= 6 {
                     self.mode += 1;
                 }
             }
@@ -198,14 +201,9 @@ impl State {
             let to_pos = self.cursor.pos.move_to_dir(to);
             if to_pos.in_field() {
                 // 合流できるか
-                if self.mode == 4 && *to_pos.access_matrix(&self.ans) != !0 {
-                    let mut tile = to_pos.access_matrix(&input.t).clone();
-                    for i in 0..*to_pos.access_matrix(&self.ans) {
-                        tile = ROTATE[tile];
-                    }
-
+                if self.mode == 4 && to_pos == self.sp {
                     let from = (to + 2) % 4;
-                    if TO[tile][from] != 0 {
+                    if from == 2 {
                         let mut next_st = self.clone();
 
                         self.cursor.pos.set_matrix(&mut next_st.ans, rotate_num);
@@ -264,17 +262,24 @@ fn main() {
 
     let input = Input::new(t);
 
-    let sp = Coord::new((2, 2));
-    let sc1 = Cursor {
-        pos: sp.clone(),
-        from: 1,
-    };
-    let sc2 = Cursor {
+    let mut sp = Coord::new((2, 2));
+    for y in 1..=3 {
+        for x in 1..=3 {
+            let tile = input.t[y][x];
+            if tile <= 3 {
+                sp = Coord::from_usize_pair((x, y));
+            }
+        }
+    }
+    eprintln!("{:?}", sp);
+    let sc = Cursor {
         pos: sp.clone(),
         from: 2,
     };
 
-    let mut stack = vec![State::new(sc1), State::new(sc2)];
+    let init_st = State::new(sc, sp);
+
+    let mut stack = vec![init_st.clone()];
     // TODO: ループ回数の調整
     loop {
         let mut next_stack = vec![];
@@ -305,8 +310,13 @@ fn main() {
 
         // eprintln!("{}", next_stack.len());
 
+        if next_stack.is_empty() {
+            break;
+        }
+
         next_stack.sort_by(|st1, st2| st1.eval().cmp(&st2.eval()));
-        eprintln!("{:?}", next_stack[next_stack.len() - 1].cursor);
+
+        //eprintln!("{:?}", next_stack[next_stack.len() - 1].cursor);
         stack = next_stack;
 
         if stack[stack.len() - 1].mode == 5 {
@@ -314,7 +324,11 @@ fn main() {
         }
     }
 
-    stack[stack.len() - 1].print_ans();
+    if !stack.is_empty() {
+        stack[stack.len() - 1].print_ans();
+    } else {
+        init_st.print_ans()
+    }
 
     eprintln!("{}ms", system_time.elapsed().unwrap().as_millis());
 }
